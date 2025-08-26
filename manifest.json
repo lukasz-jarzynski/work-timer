@@ -1,0 +1,9 @@
+{
+  "name": "Licznik czasu pracy",
+  "short_name": "CzasPracy",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "icons": []
+}
