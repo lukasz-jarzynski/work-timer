@@ -1,126 +1,143 @@
-function roundToNearestHalfHour(date) {
-  let ms = 1000*60*30;
-  return new Date(Math.ceil(date.getTime()/ms)*ms);
-}
+let entries = JSON.parse(localStorage.getItem("entries") || "[]");
+let settings = JSON.parse(localStorage.getItem("settings") || '{"rate":0,"payout":0}');
+let editingIndex = null;
 
-function populateTimeSelects() {
-  const start = document.getElementById("start");
-  const end = document.getElementById("end");
-  for(let h=0;h<24;h++){
-    for(let m of [0,30]){
-      let t = (h<10?'0'+h:h)+':'+(m===0?'00':'30');
-      let o1=document.createElement('option'); o1.value=t; o1.text=t; start.appendChild(o1);
-      let o2=document.createElement('option'); o2.value=t; o2.text=t; end.appendChild(o2);
+// Ustawienia miesiąca
+let currentDate = new Date();
+let currentMonth = currentDate.getMonth();
+let currentYear = currentDate.getFullYear();
+
+// godziny co 30 min
+function populateTimes() {
+  let startSel = document.getElementById("start");
+  let endSel = document.getElementById("end");
+  for (let h = 0; h < 24; h++) {
+    for (let m of [0, 30]) {
+      let time = `${String(h).padStart(2,"0")}:${m==0?"00":"30"}`;
+      let opt1 = new Option(time, time);
+      let opt2 = new Option(time, time);
+      startSel.add(opt1.cloneNode(true));
+      endSel.add(opt2.cloneNode(true));
     }
   }
 }
+populateTimes();
 
-function toggleRate() { document.getElementById('rateSection').classList.toggle('hidden'); }
+// domyślne wartości
+document.getElementById("date").valueAsDate = new Date();
+document.getElementById("rate").value = settings.rate;
+document.getElementById("payout").value = settings.payout;
 
 function saveSettings() {
-  const r = parseFloat(document.getElementById('hourlyRate').value)||0;
-  const a = parseFloat(document.getElementById('toAccount').value)||0;
-  localStorage.setItem('hourlyRate', r);
-  localStorage.setItem('toAccount', a);
-  alert('Zapisano ustawienia');
-  renderSummary();
-}
-
-function loadSettings() {
-  const r = localStorage.getItem('hourlyRate');
-  const a = localStorage.getItem('toAccount');
-  if(r) document.getElementById('hourlyRate').value = r;
-  if(a) document.getElementById('toAccount').value = a;
+  settings.rate = parseFloat(document.getElementById("rate").value) || 0;
+  settings.payout = parseFloat(document.getElementById("payout").value) || 0;
+  localStorage.setItem("settings", JSON.stringify(settings));
+  render();
 }
 
 function addEntry() {
-  const date = document.getElementById('date').value;
-  const start = document.getElementById('start').value;
-  const end = document.getElementById('end').value;
-  const note = document.getElementById('note').value;
-  const bonus = parseFloat(document.getElementById('bonus').value)||0;
-  if(!date||!start||!end){alert('Uzupełnij datę i godziny'); return;}
-  const entries = JSON.parse(localStorage.getItem('entries')||'[]');
-  entries.push({date,start,end,note,bonus});
-  localStorage.setItem('entries', JSON.stringify(entries));
-  renderEntries();
-  renderSummary();
+  let date = document.getElementById("date").value;
+  let start = document.getElementById("start").value;
+  let end = document.getElementById("end").value;
+  let note = document.getElementById("note").value;
+  let bonus = parseFloat(document.getElementById("bonus").value) || 0;
+
+  let startH = parseInt(start.split(":")[0]) + parseInt(start.split(":")[1])/60;
+  let endH = parseInt(end.split(":")[0]) + parseInt(end.split(":")[1])/60;
+  if (endH < startH) endH += 24;
+  let hours = endH - startH;
+
+  let entry = {date, start, end, note, bonus, hours};
+
+  if (editingIndex !== null) {
+    entries[editingIndex] = entry;
+    editingIndex = null;
+  } else {
+    entries.push(entry);
+  }
+  localStorage.setItem("entries", JSON.stringify(entries));
+  render();
 }
 
-function editEntry(i) {
-  const entries = JSON.parse(localStorage.getItem('entries')||'[]');
-  const e = entries[i];
-  document.getElementById('date').value = e.date;
-  document.getElementById('start').value = e.start;
-  document.getElementById('end').value = e.end;
-  document.getElementById('note').value = e.note;
-  document.getElementById('bonus').value = e.bonus;
-  entries.splice(i,1);
-  localStorage.setItem('entries', JSON.stringify(entries));
-  renderEntries();
-  renderSummary();
+function editEntry(index) {
+  let e = entries[index];
+  document.getElementById("date").value = e.date;
+  document.getElementById("start").value = e.start;
+  document.getElementById("end").value = e.end;
+  document.getElementById("note").value = e.note;
+  document.getElementById("bonus").value = e.bonus;
+  editingIndex = index;
 }
 
-function deleteEntry(i) {
-  const entries = JSON.parse(localStorage.getItem('entries')||'[]');
-  if(confirm('Usuń wpis?')){ entries.splice(i,1); localStorage.setItem('entries', JSON.stringify(entries)); renderEntries(); renderSummary(); }
+function deleteEntry(index) {
+  entries.splice(index,1);
+  localStorage.setItem("entries", JSON.stringify(entries));
+  render();
 }
 
-function diffHours(s,e){
-  let [sh,sm]=s.split(':').map(Number);
-  let [eh,em]=e.split(':').map(Number);
-  return (new Date(0,0,0,eh,em)-new Date(0,0,0,sh,sm))/3600000;
-}
+function render() {
+  // Label miesiąca
+  let label = new Date(currentYear, currentMonth).toLocaleString("pl-PL",{month:"long", year:"numeric"});
+  document.getElementById("monthLabel").innerText = label;
 
-function getWorkDays(y,m){
-  let days = new Date(y,m+1,0).getDate(), count=0;
-  for(let d=1;d<=days;d++){ let day=new Date(y,m,d).getDay(); if(day!==0 && day!==6) count++; }
-  return count;
-}
+  // filtr dla wybranego miesiąca
+  let monthEntries = entries.filter(e=>{
+    let d = new Date(e.date);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  }).sort((a,b)=> new Date(a.date)-new Date(b.date));
 
-function renderEntries(){
-  let entries=JSON.parse(localStorage.getItem('entries')||'[]');
-  entries.sort((a,b)=>a.date.localeCompare(b.date));
-  const tbody=document.querySelector('#entriesTable tbody'); tbody.innerHTML='';
-  const dayNames=['Nd','Pn','Wt','Śr','Cz','Pt','Sb'];
-  entries.forEach((e,i)=>{
-    let h=diffHours(e.start,e.end);
-    let d=new Date(e.date);
-    let shortDate=dayNames[d.getDay()]+' '+('0'+d.getDate()).slice(-2);
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${shortDate}</td><td>${h.toFixed(2)}</td><td>${e.note||'-'}</td><td>${e.bonus}</td><td class="actions"><button onclick="editEntry(${i})">✏️</button><button onclick="deleteEntry(${i})">🗑️</button></td>`;
+  // tabela
+  let tbody = document.querySelector("#entriesTable tbody");
+  tbody.innerHTML = "";
+  for (let [i,e] of monthEntries.entries()) {
+    let d = new Date(e.date);
+    let dayLabel = d.toLocaleDateString("pl-PL",{weekday:"short", day:"numeric"});
+    let tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${dayLabel}</td>
+      <td>${e.start} - ${e.end}</td>
+      <td>${e.hours.toFixed(1)}</td>
+      <td>${e.note}</td>
+      <td>${e.bonus.toFixed(2)}</td>
+      <td>
+        <button onclick="editEntry(${entries.indexOf(e)})">✏️</button>
+        <button onclick="deleteEntry(${entries.indexOf(e)})">🗑️</button>
+      </td>`;
     tbody.appendChild(tr);
-  });
+  }
+
+  // podsumowanie
+  let totalHours = monthEntries.reduce((s,e)=>s+e.hours,0);
+  let totalBonus = monthEntries.reduce((s,e)=>s+e.bonus,0);
+
+  // dni robocze
+  let daysInMonth = new Date(currentYear, currentMonth+1,0).getDate();
+  let workdays = 0;
+  for (let d=1; d<=daysInMonth; d++){
+    let day = new Date(currentYear,currentMonth,d).getDay();
+    if (day!==0 && day!==6) workdays++;
+  }
+  let baseHours = workdays*8 + 10;
+  let overtime = Math.max(0,totalHours-baseHours);
+  let normalHours = totalHours - overtime;
+  let pay = normalHours*settings.rate + overtime*settings.rate*1.5 + totalBonus;
+  let netto = pay - settings.payout;
+
+  document.getElementById("summary").innerHTML = `
+    <p>Godziny w podstawie: ${normalHours.toFixed(1)} | Nadgodziny: ${overtime.toFixed(1)}</p>
+    <p>Premie: ${totalBonus.toFixed(2)} zł</p>
+    <p>Razem do wypłaty: ${pay.toFixed(2)} zł</p>
+    <p>Na konto: ${settings.payout.toFixed(2)} zł</p>
+    <p><b>Pozostaje: ${netto.toFixed(2)} zł</b></p>
+  `;
 }
 
-function renderSummary(){
-  const entries=JSON.parse(localStorage.getItem('entries')||'[]');
-  const rate=parseFloat(localStorage.getItem('hourlyRate')||'0');
-  const toAcc=parseFloat(localStorage.getItem('toAccount')||'0');
-  const now=new Date();
-  const workdays=getWorkDays(now.getFullYear(), now.getMonth());
-  const baseHoursLimit=workdays*8+10;
-  let totalHours=0, totalBonus=0, bonusList=[];
-  entries.forEach(e=>{let h=diffHours(e.start,e.end); totalHours+=h; if(e.bonus){totalBonus+=e.bonus; bonusList.push({note:e.note,bonus:e.bonus});}});
-  let baseHours=Math.min(totalHours,baseHoursLimit);
-  let overtimeHours=Math.max(0,totalHours-baseHoursLimit);
-  let basePay=baseHours*rate, overtimePay=overtimeHours*rate*1.5;
-  let totalPay=basePay+overtimePay+totalBonus-toAcc; if(totalPay<0) totalPay=0;
-  let summary=`<h2>Podsumowanie miesiąca</h2><p>Dni bazowe: ${workdays} | Bazowe godziny: ${baseHoursLimit}</p><p>Godziny w podstawie: ${baseHours.toFixed(2)} = ${basePay.toFixed(2)} PLN</p><p>Nadgodziny: ${overtimeHours.toFixed(2)} = ${overtimePay.toFixed(2)} PLN</p><details><summary>Premie: ${totalBonus.toFixed(2)} PLN</summary><ul>${bonusList.map(b=>`<li>${b.note||'-'}: ${b.bonus} PLN</li>`).join('')}</ul></details><p>Na konto: ${toAcc.toFixed(2)} PLN</p><h3>Razem do wypłaty: ${totalPay.toFixed(2)} PLN</h3>`;
-  document.getElementById('summary').innerHTML=summary;
+function changeMonth(dir){
+  currentMonth += dir;
+  if (currentMonth<0){ currentMonth=11; currentYear--; }
+  if (currentMonth>11){ currentMonth=0; currentYear++; }
+  render();
 }
 
-function init(){
-  populateTimeSelects();
-  loadSettings();
-  renderEntries();
-  renderSummary();
-  let today=new Date();
-  document.getElementById('date').value=today.toISOString().substr(0,10);
-  document.getElementById('start').value='07:00';
-  let re=roundToNearestHalfHour(today);
-  let eh=re.getHours(), em=re.getMinutes();
-  document.getElementById('end').value=(eh<10?'0'+eh:eh)+':'+(em===0?'00':'30');
-}
+render();
 
-window.onload=init;
