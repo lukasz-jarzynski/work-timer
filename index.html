@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Licznik czasu pracy</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background:#121212; color:#fff; margin:0; padding:0; }
+    header { padding:1rem; text-align:center; font-size:1.5rem; background:#1e1e1e; }
+    section { padding:1rem; }
+    input, select, button, textarea { width:100%; margin:0.25rem 0; padding:0.5rem; border-radius:0.5rem; border:none; }
+    button { background:#3a3a3a; color:#fff; cursor:pointer; }
+    button:hover { background:#555; }
+    table { width:100%; border-collapse:collapse; margin-top:1rem; }
+    th, td { border-bottom:1px solid #333; padding:0.5rem; text-align:left; vertical-align:top; }
+    .row { display:flex; gap:0.5rem; }
+    .row > * { flex:1; }
+    .settings { margin-top:1rem; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <header>Licznik czasu pracy</header>
+
+  <section id="form-section">
+    <div class="row">
+      <input type="date" id="date">
+      <select id="start"></select>
+      <select id="end"></select>
+    </div>
+    <textarea id="note" placeholder="Notatka"></textarea>
+    <input type="number" id="bonus" placeholder="Premia" step="0.01">
+    <button onclick="addEntry()">Dodaj wpis</button>
+  </section>
+
+  <section id="summary">
+    <h2>Podsumowanie miesiąca</h2>
+    <div>
+      <label for="monthSelect">Wybierz miesiąc:</label>
+      <select id="monthSelect" onchange="changeMonth()"></select>
+    </div>
+    <p id="month-summary"></p>
+  </section>
+
+  <section id="entries">
+    <h2>Wpisy</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Godziny</th>
+          <th>Notatka</th>
+          <th>Premia</th>
+          <th>Akcje</th>
+        </tr>
+      </thead>
+      <tbody id="entries-body"></tbody>
+    </table>
+  </section>
+
+  <section class="settings">
+    <button onclick="toggleSettings()">Ustawienia</button>
+    <div id="settings" class="hidden">
+      <input type="number" id="rate" placeholder="Stawka godzinowa" step="0.01">
+      <input type="number" id="account" placeholder="Na konto" step="0.01">
+      <button onclick="saveSettings()">Zapisz ustawienia</button>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
